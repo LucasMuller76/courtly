@@ -1,66 +1,68 @@
-from typing import Generator, Optional
+from typing import Optional
 
-from fastapi import Depends, HTTPException, Cookie, status
+from fastapi import Cookie, Depends, HTTPException, status
 from jose import JWTError, jwt
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
-from app.database import get_db
 from app.config import settings
-from app.models import User, Club
+from app.database import get_db
+from app.models import Club, User
 
 
 def get_current_user(
-    access_token: Optional[str] = Cookie(default=None),
+    courtly_token: Optional[str] = Cookie(default=None),
     db: Session = Depends(get_db),
 ) -> User:
     """
     Lê o JWT do cookie httpOnly e retorna o usuário logado.
-    Redireciona para /login se não autenticado.
+    O nome do parâmetro deve ser idêntico ao nome do cookie.
     """
-    if not access_token:
+    if not courtly_token:
         raise HTTPException(
-            status_code=status.HTTP_302_FOUND,
-            headers={"Location": "/login"},
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Não autenticado.",
         )
     try:
         payload = jwt.decode(
-            access_token,
+            courtly_token,
             settings.SECRET_KEY,
             algorithms=[settings.ALGORITHM],
         )
-        user_id: str = payload.get("sub")
+        user_id: str | None = payload.get("sub")
         if not user_id:
             raise HTTPException(
-                status_code=status.HTTP_302_FOUND,
-                headers={"Location": "/login"},
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token inválido.",
             )
     except JWTError:
         raise HTTPException(
-            status_code=status.HTTP_302_FOUND,
-            headers={"Location": "/login"},
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token inválido ou expirado.",
         )
 
-    user = db.query(User).filter(User.id == user_id).first()
+    # selectinload carrega o relacionamento club junto com o user
+    # evita lazy loading depois que a sessão for fechada
+    user = (
+        db.query(User)
+        .options(selectinload(User.club))
+        .filter(User.id == user_id)
+        .first()
+    )
     if not user:
         raise HTTPException(
-            status_code=status.HTTP_302_FOUND,
-            headers={"Location": "/login"},
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Usuário não encontrado.",
         )
     return user
 
 
 def get_current_club(
     current_user: User = Depends(get_current_user),
-    db: Session = Depends(get_db),
 ) -> Club:
-    """
-    Retorna o clube do usuário logado.
-    Se ainda não tem clube, redireciona para o onboarding.
-    """
-    club = db.query(Club).filter(Club.user_id == current_user.id).first()
-    if not club:
+    """Retorna o clube do usuário logado (o club já vem carregado via selectinload)."""
+    if not current_user.club:
         raise HTTPException(
-            status_code=status.HTTP_302_FOUND,
-            headers={"Location": "/onboarding"},
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Nenhum clube associado a este usuário.",
         )
-    return club
+    return current_user.club
