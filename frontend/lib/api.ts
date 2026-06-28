@@ -1,6 +1,5 @@
-import type { MeResponse, RegisterPayload } from "./types";
+import type { Court, MeResponse, RegisterPayload } from "./types";
 
-// Prefixo usado por Client Components (vai pelo proxy de rewrites do Next.js)
 const API = "/api/v1";
 
 export class ApiError extends Error {
@@ -16,11 +15,8 @@ export class ApiError extends Error {
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(`${API}${path}`, {
     ...init,
-    credentials: "include", // envia o cookie httpOnly automaticamente
-    headers: {
-      "Content-Type": "application/json",
-      ...init.headers,
-    },
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...init.headers },
   });
 
   if (!res.ok) {
@@ -28,7 +24,6 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
     throw new ApiError(res.status, body.detail ?? "Erro desconhecido.");
   }
 
-  // Respostas sem body (ex: 204 No Content)
   const text = await res.text();
   return text ? (JSON.parse(text) as T) : (undefined as T);
 }
@@ -50,4 +45,23 @@ export const authApi = {
     request<{ message: string }>("/auth/logout", { method: "POST" }),
 
   me: () => request<MeResponse>("/auth/me"),
+};
+
+export const courtsApi = {
+  list: () => request<Court[]>("/courts"),
+
+  create: (data: Pick<Court, "name" | "price_per_hour">) =>
+    request<Court>("/courts/", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  update: (id: string, data: Partial<Pick<Court, "name" | "price_per_hour" | "is_active">>) =>
+    request<Court>(`/courts/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
+
+  delete: (id: string) =>
+    request<void>(`/courts/${id}`, { method: "DELETE" }),
 };

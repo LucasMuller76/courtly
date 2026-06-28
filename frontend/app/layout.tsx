@@ -1,24 +1,25 @@
 import type { Metadata } from "next";
-import { Outfit, Geist } from "next/font/google";
+import { Outfit } from "next/font/google";
+import { Toaster } from "sonner";
 import "./globals.css";
-import { cn } from "@/lib/utils";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
+const outfit = Outfit({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Courtly — Secretária Virtual para Padel",
-  description: "Gerencie reservas e automatize o atendimento do seu clube de padel.",
+  description: "Gerencie reservas e automatize o atendimento do seu clube.",
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" suppressHydrationWarning className={cn("font-sans", geist.variable)}>
-      <body className={`${geist.variable} font-sans antialiased bg-background text-foreground`}>
+    <html lang="pt-BR" suppressHydrationWarning>
+      <body className={`${outfit.variable} font-sans antialiased bg-background text-foreground`}>
         {children}
+        <Toaster richColors closeButton position="top-right" />
       </body>
     </html>
   );

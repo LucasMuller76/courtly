@@ -9,7 +9,7 @@ export interface Club {
   name: string;
   slug: string;
   phone?: string | null;
-  timezone: string;
+  timezone?: string | null;
   is_active: boolean;
 }
 
@@ -24,4 +24,13 @@ export interface RegisterPayload {
   password: string;
   club_name: string;
   club_slug: string;
+}
+
+export interface Court {
+  id: string;
+  club_id: string;
+  name: string;
+  price_per_hour: number | null;
+  is_active: boolean;
+  created_at: string;
 }
