@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Response, status
+import logging
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -9,6 +11,8 @@ from app.schemas.auth import LoginRequest, MeResponse, RegisterRequest
 from app.services import auth_service
 
 router = APIRouter()
+
+logger = logging.getLogger("courtly")
 
 _COOKIE_NAME = "courtly_token"
 _COOKIE_MAX_AGE = 60 * 60 * 24  # 24 horas em segundos
@@ -26,7 +30,7 @@ def _set_auth_cookie(response: Response, token: str) -> None:
     )
 
 
-@router.post("/register", status_code=status.HTTP_201_CREATED)
+@router.post("/register", status_code=status.HTTP_201_CREATED, response_model=MeResponse)
 def register(
     body: RegisterRequest,
     response: Response,
@@ -43,17 +47,25 @@ def register(
             detail="Este endereço de clube já está em uso. Escolha outro.",
         )
 
-    user, club = auth_service.create_user_and_club(
-        db,
-        name=body.name,
-        email=body.email,
-        password=body.password,
-        club_name=body.club_name,
-        club_slug=body.club_slug,
-    )
+    try:
+        user, club = auth_service.create_user_and_club(
+            db,
+            name=body.name,
+            email=body.email,
+            password=body.password,
+            club_name=body.club_name,
+            club_slug=body.club_slug,
+        )
+    except IntegrityError:
+        # Pode haver condição de corrida entre a checagem de disponibilidade e o commit
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Dados em conflito (e-mail ou endereço de clube já em uso).",
+        )
 
     token = auth_service.create_access_token(str(user.id))
     _set_auth_cookie(response, token)
+    logger.info("Novo usuário registrado: %s", user.email)
     return {"user": user, "club": club}
 
 
@@ -72,12 +84,14 @@ def login(
 
     token = auth_service.create_access_token(str(user.id))
     _set_auth_cookie(response, token)
+    logger.info("Login realizado: %s", user.email)
     return {"message": "Login realizado com sucesso."}
 
 
 @router.post("/logout")
 def logout(response: Response):
     response.delete_cookie(key=_COOKIE_NAME, path="/")
+    logger.info("Logout realizado")
     return {"message": "Logout realizado."}
 
 

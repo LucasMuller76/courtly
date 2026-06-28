@@ -1,4 +1,6 @@
 import re
+from uuid import UUID
+
 from pydantic import BaseModel, EmailStr, field_validator
 
 
@@ -40,7 +42,7 @@ class LoginRequest(BaseModel):
 
 
 class UserOut(BaseModel):
-    id: str
+    id: UUID
     name: str
     email: str
 
@@ -48,11 +50,11 @@ class UserOut(BaseModel):
 
 
 class ClubOut(BaseModel):
-    id: str
+    id: UUID
     name: str
     slug: str
     phone: str | None = None
-    timezone: str
+    timezone: str | None = None
     is_active: bool
 
     model_config = {"from_attributes": True}

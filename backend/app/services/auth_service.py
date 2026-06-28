@@ -3,6 +3,8 @@ import unicodedata
 from datetime import datetime, timedelta, timezone
 
 from jose import jwt
+import logging
+from sqlalchemy.exc import IntegrityError
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
@@ -84,7 +86,15 @@ def create_user_and_club(
         slug=club_slug,
     )
     db.add(club)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise
+    except Exception:
+        db.rollback()
+        logging.getLogger("courtly").exception("Unexpected error creating user and club")
+        raise
     db.refresh(user)
     db.refresh(club)
     return user, club

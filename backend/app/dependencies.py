@@ -1,4 +1,5 @@
 from typing import Optional
+import uuid
 
 from fastapi import Cookie, Depends, HTTPException, status
 from jose import JWTError, jwt
@@ -34,6 +35,13 @@ def get_current_user(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token inválido.",
             )
+        try:
+            user_uuid = uuid.UUID(user_id)
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token inválido.",
+            )
     except JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -45,7 +53,7 @@ def get_current_user(
     user = (
         db.query(User)
         .options(selectinload(User.club))
-        .filter(User.id == user_id)
+        .filter(User.id == user_uuid)
         .first()
     )
     if not user:
